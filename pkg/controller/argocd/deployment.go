@@ -825,6 +825,9 @@ func (r *ReconcileArgoCD) reconcileRepoDeployment(cr *argoprojv1a1.ArgoCD) error
 		Resources: getArgoRepoResources(cr),
 		VolumeMounts: []corev1.VolumeMount{
 			{
+				Name:      "gpg-keyring",
+				MountPath: "/app/config/gpg/keys",
+			}, {
 				Name:      "ssh-known-hosts",
 				MountPath: "/app/config/ssh",
 			}, {
@@ -836,6 +839,11 @@ func (r *ReconcileArgoCD) reconcileRepoDeployment(cr *argoprojv1a1.ArgoCD) error
 
 	deploy.Spec.Template.Spec.Volumes = []corev1.Volume{
 		{
+			Name: "gpg-keyring",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		}, {
 			Name: "ssh-known-hosts",
 			VolumeSource: corev1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
