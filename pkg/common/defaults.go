@@ -31,7 +31,7 @@ const (
 	ArgoCDDefaultArgoImage = "argoproj/argocd"
 
 	// ArgoCDDefaultArgoVersion is the Argo CD container image digest to use when version not specified.
-	ArgoCDDefaultArgoVersion = "sha256:0a8fa1fee472568c2ec49dc1a71d3af56613b6b62353560a3682abc24492daee" // v1.6.1
+	ArgoCDDefaultArgoVersion = "sha256:e561b4caa56a7ec41f59ba305b1f8158ada2c7eaee7a87d29fad8d88da650fec" // v1.7.6
 
 	// ArgoCDDefaultBackupKeyLength is the length of the generated default backup key.
 	ArgoCDDefaultBackupKeyLength = 32
