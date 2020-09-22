@@ -33,6 +33,18 @@ Run the provided shell script to build the operator. A container image wil be cr
 hack/build.sh
 ```
 
+### Test
+
+The following requirments must be installed for testing.
+
+* [KUTTL][kuttl_link]
+
+Run the project tests. 
+
+``` bash
+hack/test.sh
+```
+
 ### Release
 
 Push a locally created container image to a container registry for deployment.
@@ -48,4 +60,6 @@ Bundle the operator for usage in OLM as a CatalogSource.
 ``` bash
 hack/bundle.sh
 ```
+
+[kuttl_link]:https://kuttl.dev/
 [podman_link]:https://podman.io

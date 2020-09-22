@@ -19,4 +19,5 @@
 HACK_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 source ${HACK_DIR}/env.sh
 
-kubectl kudo test
+# Run e2e tests
+kubectl kuttl test
