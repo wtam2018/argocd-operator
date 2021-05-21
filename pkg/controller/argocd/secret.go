@@ -20,10 +20,10 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
+	"time"
+
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strings"
-	"time"
 
 	argoprojv1a1 "github.com/argoproj-labs/argocd-operator/pkg/apis/argoproj/v1alpha1"
 	"github.com/argoproj-labs/argocd-operator/pkg/common"
@@ -381,7 +381,7 @@ func (r *ReconcileArgoCD) reconcileGrafanaSecret(cr *argoprojv1a1.ArgoCD) error 
 
 // reconcileClusterPermissionsSecret ensures ArgoCD instance is namespace-scoped
 func (r *ReconcileArgoCD) reconcileClusterPermissionsSecret(cr *argoprojv1a1.ArgoCD) error {
-	secret := argoutil.NewSecretWithSuffix(cr.ObjectMeta, "namespaces")
+	secret := argoutil.NewSecretWithSuffix(cr.ObjectMeta, "default-cluster-config")
 	secret.Labels[common.ArgoCDSecretTypeLabel] = "cluster"
 	dataBytes, _ := json.Marshal(map[string]interface{}{
 		"tlsClientConfig": map[string]interface{}{
@@ -403,6 +403,7 @@ func (r *ReconcileArgoCD) reconcileClusterPermissionsSecret(cr *argoprojv1a1.Arg
 		LabelSelector: labels.SelectorFromSet(map[string]string{
 			common.ArgoCDSecretTypeLabel: "cluster",
 		}),
+		Namespace: cr.Namespace,
 	}
 
 	if err := r.client.List(context.TODO(), clusterSecrets, opts); err != nil {
@@ -411,37 +412,12 @@ func (r *ReconcileArgoCD) reconcileClusterPermissionsSecret(cr *argoprojv1a1.Arg
 
 	secrets := clusterSecrets.Items
 
-	update := false
 	for _, s := range secrets {
 		// check if cluster secret with name in-cluster exists
-		if string(s.Data["name"]) != "in-cluster" {
-			continue
-		}
-
-		namespaces := string(s.Data["namespaces"])
-		if namespaces == "" {
-			s.Data["namespaces"] = []byte(cr.Namespace)
-			update = true
-		} else {
-			listNamespaces := strings.Split(namespaces, ",")
-			for _, n := range listNamespaces {
-				if cr.Namespace == strings.TrimSpace(n) {
-					return nil
-				}
-			}
-			// update the existing list with the current namespace
-			listNamespaces = append(listNamespaces, cr.Namespace)
-			namespaces = strings.Join(listNamespaces, ",")
-			s.Data["namespaces"] = []byte(namespaces)
-			update = true
-		}
-
-		if !update {
-			// do nothing
+		// do nothing if exists.
+		if string(s.Data["name"]) == "in-cluster" {
 			return nil
 		}
-
-		return r.client.Update(context.TODO(), &s)
 	}
 
 	return r.client.Create(context.TODO(), secret)
