@@ -54,14 +54,23 @@ func Test_ReconcileArgoCD_ClusterPermissionsSecret(t *testing.T) {
 	r := makeTestReconciler(t, a)
 
 	testSecret := argoutil.NewSecretWithSuffix(a.ObjectMeta, "namespaces")
+	assert.ErrorContains(t, r.client.Get(context.TODO(), types.NamespacedName{Name: testSecret.Name, Namespace: testSecret.Namespace}, testSecret), "not found")
 
 	assert.NilError(t, r.reconcileClusterPermissionsSecret(a))
 	assert.NilError(t, r.client.Get(context.TODO(), types.NamespacedName{Name: testSecret.Name, Namespace: testSecret.Namespace}, testSecret))
 	assert.DeepEqual(t, string(testSecret.Data["namespaces"]), a.Namespace)
 
 	testSecret.Data["namespaces"] = []byte("someRandomNamespace")
+	r.client.Update(context.TODO(), testSecret)
+	want := "someRandomNamespace,argocd"
 
+	// new namespace gets appended on reconciliation
 	assert.NilError(t, r.reconcileClusterPermissionsSecret(a))
 	assert.NilError(t, r.client.Get(context.TODO(), types.NamespacedName{Name: testSecret.Name, Namespace: testSecret.Namespace}, testSecret))
-	assert.DeepEqual(t, string(testSecret.Data["namespaces"]), a.Namespace)
+	assert.DeepEqual(t, string(testSecret.Data["namespaces"]), want)
+
+	// reconcile again to check nothing gets updated
+	assert.NilError(t, r.reconcileClusterPermissionsSecret(a))
+	assert.NilError(t, r.client.Get(context.TODO(), types.NamespacedName{Name: testSecret.Name, Namespace: testSecret.Namespace}, testSecret))
+	assert.DeepEqual(t, string(testSecret.Data["namespaces"]), want)
 }
