@@ -1,14 +1,20 @@
 package argocd
 
 import (
+	"context"
 	"reflect"
 	"sort"
 	"testing"
 
+	"gotest.tools/assert"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 
 	argoprojv1alpha1 "github.com/argoproj-labs/argocd-operator/pkg/apis/argoproj/v1alpha1"
+	"github.com/argoproj-labs/argocd-operator/pkg/controller/argoutil"
 )
 
 func Test_newCASecret(t *testing.T) {
@@ -40,4 +46,22 @@ func byteMapKeys(m map[string][]byte) []string {
 	}
 	sort.Strings(r)
 	return r
+}
+
+func Test_ReconcileArgoCD_ClusterPermissionsSecret(t *testing.T) {
+	logf.SetLogger(logf.ZapLogger(true))
+	a := makeTestArgoCD()
+	r := makeTestReconciler(t, a)
+
+	testSecret := argoutil.NewSecretWithSuffix(a.ObjectMeta, "namespaces")
+
+	assert.NilError(t, r.reconcileClusterPermissionsSecret(a))
+	assert.NilError(t, r.client.Get(context.TODO(), types.NamespacedName{Name: testSecret.Name, Namespace: testSecret.Namespace}, testSecret))
+	assert.DeepEqual(t, string(testSecret.Data["namespaces"]), a.Namespace)
+
+	testSecret.Data["namespaces"] = []byte("someRandomNamespace")
+
+	assert.NilError(t, r.reconcileClusterPermissionsSecret(a))
+	assert.NilError(t, r.client.Get(context.TODO(), types.NamespacedName{Name: testSecret.Name, Namespace: testSecret.Namespace}, testSecret))
+	assert.DeepEqual(t, string(testSecret.Data["namespaces"]), a.Namespace)
 }
