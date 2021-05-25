@@ -20,17 +20,18 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
+	"os"
 	"time"
-
-	"k8s.io/apimachinery/pkg/labels"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	argoprojv1a1 "github.com/argoproj-labs/argocd-operator/pkg/apis/argoproj/v1alpha1"
 	"github.com/argoproj-labs/argocd-operator/pkg/common"
 	"github.com/argoproj-labs/argocd-operator/pkg/controller/argoutil"
 	argopass "github.com/argoproj/argo-cd/util/password"
 	tlsutil "github.com/operator-framework/operator-sdk/pkg/tls"
+
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
@@ -381,6 +382,11 @@ func (r *ReconcileArgoCD) reconcileGrafanaSecret(cr *argoprojv1a1.ArgoCD) error 
 
 // reconcileClusterPermissionsSecret ensures ArgoCD instance is namespace-scoped
 func (r *ReconcileArgoCD) reconcileClusterPermissionsSecret(cr *argoprojv1a1.ArgoCD) error {
+	// do not create the secret if the key is not set.
+	if _, ok := os.LookupEnv("ARGOCD_CLUSTER_CONFIG_NAMESPACES"); !ok {
+		return nil
+	}
+
 	secret := argoutil.NewSecretWithSuffix(cr.ObjectMeta, "default-cluster-config")
 	secret.Labels[common.ArgoCDSecretTypeLabel] = "cluster"
 	dataBytes, _ := json.Marshal(map[string]interface{}{
