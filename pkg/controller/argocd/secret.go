@@ -382,11 +382,6 @@ func (r *ReconcileArgoCD) reconcileGrafanaSecret(cr *argoprojv1a1.ArgoCD) error 
 
 // reconcileClusterPermissionsSecret ensures ArgoCD instance is namespace-scoped
 func (r *ReconcileArgoCD) reconcileClusterPermissionsSecret(cr *argoprojv1a1.ArgoCD) error {
-	// do not create the secret if the key is not set.
-	if _, ok := os.LookupEnv("ARGOCD_CLUSTER_CONFIG_NAMESPACES"); !ok {
-		return nil
-	}
-
 	secret := argoutil.NewSecretWithSuffix(cr.ObjectMeta, "default-cluster-config")
 	secret.Labels[common.ArgoCDSecretTypeLabel] = "cluster"
 	dataBytes, _ := json.Marshal(map[string]interface{}{
@@ -401,8 +396,6 @@ func (r *ReconcileArgoCD) reconcileClusterPermissionsSecret(cr *argoprojv1a1.Arg
 		"server":     []byte(common.ArgoCDDefaultServer),
 		"namespaces": []byte(cr.Namespace),
 	}
-
-	applyReconcilerHook(cr, secret, "")
 
 	clusterSecrets := &corev1.SecretList{}
 	opts := &client.ListOptions{
@@ -424,6 +417,10 @@ func (r *ReconcileArgoCD) reconcileClusterPermissionsSecret(cr *argoprojv1a1.Arg
 		if string(s.Data["server"]) == common.ArgoCDDefaultServer {
 			return nil
 		}
+	}
+
+	if allowedNamespace(cr.Namespace, os.Getenv("ARGOCD_CLUSTER_CONFIG_NAMESPACES")) {
+		delete(secret.Data, "namespaces")
 	}
 
 	return r.client.Create(context.TODO(), secret)

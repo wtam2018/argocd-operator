@@ -877,3 +877,46 @@ func withClusterLabels(cr *argoprojv1a1.ArgoCD, addLabels map[string]string) map
 	}
 	return labels
 }
+
+// boolPtr returns a pointer to val
+func boolPtr(val bool) *bool {
+	return &val
+}
+
+// triggerRollout will trigger a rollout of a Kubernetes resource specified as
+// obj. It currently supports Deployment and StatefulSet resources.
+func (r *ReconcileArgoCD) triggerRollout(obj interface{}, key string) error {
+	switch res := obj.(type) {
+	case *appsv1.Deployment:
+		return r.triggerDeploymentRollout(res, key)
+	case *appsv1.StatefulSet:
+		return r.triggerStatefulSetRollout(res, key)
+	default:
+		return fmt.Errorf("resource of unknown type %T, cannot trigger rollout", res)
+	}
+}
+
+func allowedNamespace(current string, namespaces string) bool {
+
+	clusterConfigNamespaces := splitList(namespaces)
+	if len(clusterConfigNamespaces) > 0 {
+		if clusterConfigNamespaces[0] == "*" {
+			return true
+		}
+
+		for _, n := range clusterConfigNamespaces {
+			if n == current {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func splitList(s string) []string {
+	elems := strings.Split(s, ",")
+	for i := range elems {
+		elems[i] = strings.TrimSpace(elems[i])
+	}
+	return elems
+}
