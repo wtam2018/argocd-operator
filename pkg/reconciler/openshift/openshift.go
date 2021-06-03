@@ -5,15 +5,16 @@ import (
 	"os"
 	"strings"
 
+	"k8s.io/client-go/kubernetes"
+
 	argoprojv1alpha1 "github.com/argoproj-labs/argocd-operator/pkg/apis/argoproj/v1alpha1"
 	"github.com/argoproj-labs/argocd-operator/pkg/controller/argocd"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/apimachinery/pkg/types"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
-	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -25,11 +26,6 @@ func init() {
 
 func reconcilerHook(cr *argoprojv1alpha1.ArgoCD, v interface{}, hint string) error {
 	logv := log.WithValues("ArgoCD Namespace", cr.Namespace, "ArgoCD Name", cr.Name)
-	k8sClient, err := initK8sClient()
-	if err != nil {
-		logv.Error(err, "failed to initialise kube client")
-		return err
-	}
 	switch o := v.(type) {
 	case *rbacv1.ClusterRole:
 		if o.ObjectMeta.Name == argocd.GenerateUniqueResourceName("argocd-application-controller", cr) {
@@ -70,11 +66,17 @@ func reconcilerHook(cr *argoprojv1alpha1.ArgoCD, v interface{}, hint string) err
 			delete(o.Data, "namespaces")
 		}
 	case *rbacv1.Role:
-		logv.Info("configuring policy rule for Application Controller")
 		if o.ObjectMeta.Name == cr.Name+"-"+"argocd-application-controller" {
-			clusterRole := rbacv1.ClusterRole{}
-			err := k8sClient.Get(context.TODO(), types.NamespacedName{Name: "admin"}, &clusterRole)
+			logv.Info("configuring policy rule for Application Controller")
+			// can move this to somewhere common eventually, maybe init()
+			k8sClient, err := initK8sClient()
 			if err != nil {
+				logv.Error(err, "failed to initialise kube client")
+				return err
+			}
+			clusterRole, err := k8sClient.RbacV1().ClusterRoles().Get(context.TODO(), "admin", metav1.GetOptions{})
+			if err != nil {
+				logv.Error(err, "failed to retrieve Cluster Role admin")
 				return err
 			}
 			policyRules := getPolicyRuleForApplicationController()
@@ -339,11 +341,11 @@ func splitList(s string) []string {
 	return elems
 }
 
-func initK8sClient() (ctrlclient.Client, error) {
+func initK8sClient() (*kubernetes.Clientset, error) {
 	config, err := rest.InClusterConfig()
 	if err != nil {
 		return nil, err
 	}
 
-	return ctrlclient.New(config, ctrlclient.Options{})
+	return kubernetes.NewForConfig(config)
 }

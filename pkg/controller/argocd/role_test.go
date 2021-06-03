@@ -69,14 +69,14 @@ func TestReconcileArgoCD_reconcileClusterRole(t *testing.T) {
 
 	workloadIdentifier := common.ArgoCDApplicationControllerComponent
 	clusterRoleName := GenerateUniqueResourceName(workloadIdentifier, a)
-	expectedRules := []v1.PolicyRule{}
+	expectedRules := policyRuleForApplicationController()
 	_, err := r.reconcileClusterRole(workloadIdentifier, expectedRules, a)
 	assert.NilError(t, err)
 
 	// cluster role should not be created
 	assert.ErrorContains(t, r.client.Get(context.TODO(), types.NamespacedName{Name: clusterRoleName}, &v1.ClusterRole{}), "not found")
 
-	expectedRules = testClusterRoleRules()
+	os.Setenv("ARGOCD_CLUSTER_CONFIG_NAMESPACES", a.Namespace)
 	_, err = r.reconcileClusterRole(workloadIdentifier, expectedRules, a)
 	assert.NilError(t, err)
 
@@ -95,6 +95,7 @@ func TestReconcileArgoCD_reconcileClusterRole(t *testing.T) {
 	assert.DeepEqual(t, expectedRules, reconciledClusterRole.Rules)
 
 	// Check if the CLuster Role gets deleted
-	_, err = r.reconcileClusterRole(workloadIdentifier, []v1.PolicyRule{}, a)
+	os.Unsetenv("ARGOCD_CLUSTER_CONFIG_NAMESPACES")
+	_, err = r.reconcileClusterRole(workloadIdentifier, expectedRules, a)
 	assert.ErrorContains(t, r.client.Get(context.TODO(), types.NamespacedName{Name: clusterRoleName}, reconciledClusterRole), "not found")
 }
